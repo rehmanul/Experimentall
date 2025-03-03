@@ -1,0 +1,468 @@
+<script>
+// Add error handling for google.script.run
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error("Error: ", message, "at", source, ":", lineno);
+  alert("JavaScript error: " + message);
+  return true;
+};
+
+// Check if google.script object is available
+if (typeof google === 'undefined' || typeof google.script === 'undefined') {
+  console.error("Google Apps Script API not available");
+  document.body.innerHTML = '<div style="color:red; padding:20px;">Error: Unable to connect to Google Apps Script backend. Please try reloading the page.</div>' + document.body.innerHTML;
+}
+</script>
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Settings</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      color: #202124;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      color: #4285f4;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .card-title {
+      font-weight: 500;
+      color: #4285f4;
+      margin-top: 0;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="password"],
+    .form-group input[type="number"],
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .checkbox-group label {
+      margin-left: 10px;
+      font-weight: normal;
+    }
+    
+    .button {
+      background: linear-gradient(135deg, #4285f4, #34a853);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    
+    .button:hover {
+      opacity: 0.9;
+    }
+    
+    .button-secondary {
+      background: #5f6368;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    
+    .button-secondary:hover {
+      opacity: 0.9;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #dadce0;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+    }
+    
+    .tab.active {
+      border-bottom-color: #4285f4;
+      color: #4285f4;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .status-message {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    
+    .status-success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status-error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-cog"></i> Settings</h1>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('tab-api')">API Keys</div>
+      <div class="tab" onclick="showTab('tab-extraction')">Extraction</div>
+      <div class="tab" onclick="showTab('tab-filters')">Filters</div>
+      <div class="tab" onclick="showTab('tab-appearance')">Appearance</div>
+    </div>
+    
+    <div id="status-message" class="status-message"></div>
+    
+    <div id="tab-api" class="tab-content active">
+      <div class="card">
+        <h3 class="card-title"><i class="fas fa-key"></i> Azure OpenAI Configuration</h3>
+        <div class="form-group">
+          <label for="azure-key">API Key</label>
+          <input type="password" id="azure-key" placeholder="Enter Azure OpenAI API Key">
+        </div>
+        <div class="form-group">
+          <label for="azure-endpoint">Endpoint URL</label>
+          <input type="text" id="azure-endpoint" placeholder="https://your-resource.openai.azure.com/">
+        </div>
+        <div class="form-group">
+          <label for="azure-deployment">Deployment Name</label>
+          <input type="text" id="azure-deployment" placeholder="Enter deployment name">
+        </div>
+        <button class="button" onclick="saveAzureSettings()">
+          <i class="fas fa-save"></i> Save Azure Settings
+        </button>
+        <button class="button-secondary" onclick="testAzureConnection()">
+          <i class="fas fa-vial"></i> Test Connection
+        </button>
+      </div>
+    </div>
+    
+    <div id="tab-extraction" class="tab-content">
+      <div class="card">
+        <h3 class="card-title"><i class="fas fa-spider"></i> Crawling Settings</h3>
+        <div class="form-group">
+          <label for="max-depth">Maximum Crawl Depth</label>
+          <input type="number" id="max-depth" min="1" max="5" value="3">
+        </div>
+        <div class="form-group">
+          <label for="max-products">Maximum Products per Site</label>
+          <input type="number" id="max-products" min="1" max="100" value="50">
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="translate-enabled" checked>
+          <label for="translate-enabled">Enable Translation</label>
+        </div>
+        <div class="form-group">
+          <label for="request-delay">Delay Between Requests (ms)</label>
+          <input type="number" id="request-delay" min="500" max="10000" value="2500">
+        </div>
+        <button class="button" onclick="saveExtractionSettings()">
+          <i class="fas fa-save"></i> Save Extraction Settings
+        </button>
+      </div>
+    </div>
+    
+    <div id="tab-filters" class="tab-content">
+      <div class="card">
+        <h3 class="card-title"><i class="fas fa-filter"></i> Filter Settings</h3>
+        <div class="form-group">
+          <label for="banned-phrases">Banned Phrases (one per line)</label>
+          <textarea id="banned-phrases" rows="10" placeholder="Enter phrases to exclude..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="food-words">Food Keywords (one per line)</label>
+          <textarea id="food-words" rows="10" placeholder="Enter food keywords..."></textarea>
+        </div>
+        <button class="button" onclick="saveFilterSettings()">
+          <i class="fas fa-save"></i> Save Filter Settings
+        </button>
+      </div>
+    </div>
+    
+    <div id="tab-appearance" class="tab-content">
+      <div class="card">
+        <h3 class="card-title"><i class="fas fa-palette"></i> Appearance Settings</h3>
+        <div class="form-group">
+          <label for="theme">Theme</label>
+          <select id="theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="language">Language</label>
+          <select id="language">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+          </select>
+        </div>
+        <button class="button" onclick="saveAppearanceSettings()">
+          <i class="fas fa-save"></i> Save Appearance Settings
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Initialize
+    window.onload = function() {
+      loadSettings();
+    };
+    
+    // Show tab
+    function showTab(tabId) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected tab
+      document.getElementById(tabId).classList.add('active');
+      document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+    }
+    
+    // Load settings
+    function loadSettings() {
+      // Load API settings
+      google.script.run
+        .withSuccessHandler(function(settings) {
+          // API settings
+          if (settings.AZURE_OPENAI_ENDPOINT) {
+            document.getElementById('azure-endpoint').value = settings.AZURE_OPENAI_ENDPOINT;
+          }
+          if (settings.AZURE_OPENAI_DEPLOYMENT) {
+            document.getElementById('azure-deployment').value = settings.AZURE_OPENAI_DEPLOYMENT;
+          }
+          
+          // Extraction settings
+          if (settings.MAX_DEPTH) {
+            document.getElementById('max-depth').value = settings.MAX_DEPTH;
+          }
+          if (settings.MAX_PRODUCTS) {
+            document.getElementById('max-products').value = settings.MAX_PRODUCTS;
+          }
+          if (settings.TRANSLATE_ENABLED !== undefined) {
+            document.getElementById('translate-enabled').checked = settings.TRANSLATE_ENABLED === 'true';
+          }
+          if (settings.REQUEST_DELAY) {
+            document.getElementById('request-delay').value = settings.REQUEST_DELAY;
+          }
+          
+          // Appearance settings
+          if (settings.DISPLAY_THEME) {
+            document.getElementById('theme').value = settings.DISPLAY_THEME;
+          }
+          if (settings.DISPLAY_LANGUAGE) {
+            document.getElementById('language').value = settings.DISPLAY_LANGUAGE;
+          }
+          
+          // Filter settings will be loaded separately due to size
+          loadFilterSettings();
+        })
+        .getAllSettings();
+    }
+    
+    // Load filter settings
+    function loadFilterSettings() {
+      google.script.run
+        .withSuccessHandler(function(filters) {
+          if (filters.BANNED_PHRASES) {
+            document.getElementById('banned-phrases').value = filters.BANNED_PHRASES;
+          }
+          if (filters.FOOD_WORDS) {
+            document.getElementById('food-words').value = filters.FOOD_WORDS;
+          }
+        })
+        .getFilterSettings();
+    }
+    
+    // Save Azure settings
+    function saveAzureSettings() {
+      const apiKey = document.getElementById('azure-key').value;
+      const endpoint = document.getElementById('azure-endpoint').value;
+      const deployment = document.getElementById('azure-deployment').value;
+      
+      if (!apiKey && !endpoint && !deployment) {
+        showStatusMessage('Please fill in at least one field', 'error');
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          showStatusMessage('Azure settings saved successfully', 'success');
+          document.getElementById('azure-key').value = '';
+        })
+        .withFailureHandler(function(error) {
+          showStatusMessage('Error: ' + error.message, 'error');
+        })
+        .saveAzureSettings(apiKey, endpoint, deployment);
+    }
+    
+    // Test Azure connection
+    function testAzureConnection() {
+      showStatusMessage('Testing connection...', 'info');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showStatusMessage('Connection successful!', 'success');
+          } else {
+            showStatusMessage('Connection failed: ' + result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showStatusMessage('Error: ' + error.message, 'error');
+        })
+        .testApiConnection();
+    }
+    
+    // Save extraction settings
+    function saveExtractionSettings() {
+      const maxDepth = document.getElementById('max-depth').value;
+      const maxProducts = document.getElementById('max-products').value;
+      const translateEnabled = document.getElementById('translate-enabled').checked;
+      const requestDelay = document.getElementById('request-delay').value;
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          showStatusMessage('Extraction settings saved successfully', 'success');
+        })
+        .withFailureHandler(function(error) {
+          showStatusMessage('Error: ' + error.message, 'error');
+        })
+        .saveExtractionSettings(maxDepth, maxProducts, translateEnabled, requestDelay);
+    }
+    
+    // Save filter settings
+    function saveFilterSettings() {
+      const bannedPhrases = document.getElementById('banned-phrases').value;
+      const foodWords = document.getElementById('food-words').value;
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          showStatusMessage('Filter settings saved successfully', 'success');
+        })
+        .withFailureHandler(function(error) {
+          showStatusMessage('Error: ' + error.message, 'error');
+        })
+        .saveFilterSettings(bannedPhrases, foodWords);
+    }
+    
+    // Save appearance settings
+    function saveAppearanceSettings() {
+      const theme = document.getElementById('theme').value;
+      const language = document.getElementById('language').value;
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          showStatusMessage('Appearance settings saved successfully', 'success');
+        })
+        .withFailureHandler(function(error) {
+          showStatusMessage('Error: ' + error.message, 'error');
+        })
+        .saveAppearanceSettings(theme, language);
+    }
+    
+    // Show status message
+    function showStatusMessage(message, type) {
+      const statusEl = document.getElementById('status-message');
+      statusEl.textContent = message;
+      statusEl.className = 'status-message';
+      statusEl.classList.add(`status-${type}`);
+      statusEl.style.display = 'block';
+      
+      // Hide after 5 seconds
+      setTimeout(function() {
+        statusEl.style.display = 'none';
+      }, 5000);
+    }
+  </script>
+</body>
+</html>
