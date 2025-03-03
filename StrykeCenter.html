@@ -1,0 +1,410 @@
+<script>
+// Add error handling for google.script.run
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error("Error: ", message, "at", source, ":", lineno);
+  alert("JavaScript error: " + message);
+  return true;
+};
+
+// Check if google.script object is available
+if (typeof google === 'undefined' || typeof google.script === 'undefined') {
+  console.error("Google Apps Script API not available");
+  document.body.innerHTML = '<div style="color:red; padding:20px;">Error: Unable to connect to Google Apps Script backend. Please try reloading the page.</div>' + document.body.innerHTML;
+}
+</script>
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Stryke Center</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      color: #202124;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      color: #4285f4;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .card-title {
+      font-weight: 500;
+      color: #4285f4;
+      margin-top: 0;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .form-group input[type="text"],
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .button {
+      background: linear-gradient(135deg, #4285f4, #34a853);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    
+    .button:hover {
+      opacity: 0.9;
+    }
+    
+    .result-box {
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+      background-color: #f8f9fa;
+      min-height: 100px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .status {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      color: #5f6368;
+      font-size: 14px;
+    }
+    
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-success {
+      background-color: #28a745;
+    }
+    
+    .status-warning {
+      background-color: #ffc107;
+    }
+    
+    .status-error {
+      background-color: #dc3545;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #dadce0;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+    }
+    
+    .tab.active {
+      border-bottom-color: #4285f4;
+      color: #4285f4;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-brain"></i> Stryke Center</h1>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('tab-classify')">AI Classification</div>
+      <div class="tab" onclick="showTab('tab-extract')">Extraction Testing</div>
+      <div class="tab" onclick="showTab('tab-batch')">Batch Processing</div>
+    </div>
+    
+    <div id="tab-classify" class="tab-content active">
+      <div class="card">
+        <h3 class="card-title"><i class="fas fa-tags"></i> Product Classification</h3>
+        <div class="form-group">
+          <label for="productText">Enter Product Text to Analyze</label>
+          <textarea id="productText" placeholder="Paste product names or description here..."></textarea>
+        </div>
+        <button class="button" onclick="classifyProduct()">
+          <i class="fas fa-magic"></i> Analyze with AI
+        </button>
+        <div id="classifyStatus" class="status">
+          <div class="status-indicator"></div>
+          <span>Ready</span>
+        </div>
+        <div class="result-box" id="classifyResult">
+          Classification results will appear here...
+        </div>
+      </div>
+    </div>
+    
+    <div id="tab-extract" class="tab-content">
+      <div class="card">
+        <h3 class="card-title"><i class="fas fa-link"></i> URL Extraction Test</h3>
+        <div class="form-group">
+          <label for="testUrl">Enter URL to Test</label>
+          <input type="text" id="testUrl" placeholder="https://example.com/products">
+        </div>
+        <button class="button" onclick="testUrlExtraction()">
+          <i class="fas fa-vial"></i> Test Extraction
+        </button>
+        <div id="extractStatus" class="status">
+          <div class="status-indicator"></div>
+          <span>Ready</span>
+        </div>
+        <div class="result-box" id="extractResult">
+          Extraction results will appear here...
+        </div>
+      </div>
+    </div>
+    
+    <div id="tab-batch" class="tab-content">
+      <div class="card">
+        <h3 class="card-title"><i class="fas fa-layer-group"></i> Batch Processing</h3>
+        <div class="form-group">
+          <label for="batchUrls">Enter URLs (one per line)</label>
+          <textarea id="batchUrls" placeholder="https://example.com/products
+https://another-site.com/food-items"></textarea>
+        </div>
+        <button class="button" onclick="processBatch()">
+          <i class="fas fa-cogs"></i> Process Batch
+        </button>
+        <div id="batchStatus" class="status">
+          <div class="status-indicator"></div>
+          <span>Ready</span>
+        </div>
+        <div class="result-box" id="batchResult">
+          Batch processing results will appear here...
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Tab functionality
+    function showTab(tabId) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected tab
+      document.getElementById(tabId).classList.add('active');
+      document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+    }
+    
+    // Classify product
+    function classifyProduct() {
+      const productText = document.getElementById('productText').value;
+      if (!productText) {
+        updateStatus('classifyStatus', 'Please enter product text', 'warning');
+        return;
+      }
+      
+      updateStatus('classifyStatus', 'Processing...', 'warning');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          document.getElementById('classifyResult').innerHTML = formatJsonResult(result);
+          updateStatus('classifyStatus', 'Classification complete', 'success');
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('classifyResult').innerHTML = `<span style="color: red;">${error.message}</span>`;
+          updateStatus('classifyStatus', 'Error', 'error');
+        })
+        .classifyProductText(productText);
+    }
+    
+    // Test URL extraction
+    function testUrlExtraction() {
+      const url = document.getElementById('testUrl').value;
+      if (!url) {
+        updateStatus('extractStatus', 'Please enter a URL', 'warning');
+        return;
+      }
+      
+      updateStatus('extractStatus', 'Processing URL...', 'warning');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          document.getElementById('extractResult').innerHTML = formatExtractionResult(result);
+          updateStatus('extractStatus', 'Extraction complete', 'success');
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('extractResult').innerHTML = `<span style="color: red;">${error.message}</span>`;
+          updateStatus('extractStatus', 'Error', 'error');
+        })
+        .testUrlExtraction(url);
+    }
+    
+    // Process batch
+    function processBatch() {
+      const urls = document.getElementById('batchUrls').value.split('\n').filter(url => url.trim());
+      if (urls.length === 0) {
+        updateStatus('batchStatus', 'Please enter at least one URL', 'warning');
+        return;
+      }
+      
+      updateStatus('batchStatus', `Processing ${urls.length} URLs...`, 'warning');
+      
+      google.script.run
+        .withSuccessHandler(function(results) {
+          document.getElementById('batchResult').innerHTML = formatBatchResults(results);
+          updateStatus('batchStatus', 'Batch processing complete', 'success');
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('batchResult').innerHTML = `<span style="color: red;">${error.message}</span>`;
+          updateStatus('batchStatus', 'Error', 'error');
+        })
+        .processBatchUrls(urls);
+    }
+    
+    // Update status indicator
+    function updateStatus(elementId, message, type) {
+      const statusEl = document.getElementById(elementId);
+      const indicator = statusEl.querySelector('.status-indicator');
+      const text = statusEl.querySelector('span');
+      
+      // Remove all status classes
+      indicator.classList.remove('status-success', 'status-warning', 'status-error');
+      
+      // Add appropriate class
+      indicator.classList.add(`status-${type}`);
+      
+      // Update text
+      text.textContent = message;
+    }
+    
+    // Format JSON result for display
+    function formatJsonResult(result) {
+      if (typeof result === 'string') {
+        try {
+          result = JSON.parse(result);
+        } catch (e) {
+          return `<pre>${result}</pre>`;
+        }
+      }
+      
+      return `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+    }
+    
+    // Format extraction result
+    function formatExtractionResult(result) {
+      let html = '<div style="margin-bottom: 10px;">';
+      
+      if (result.products && result.products.length > 0) {
+        html += `<strong>Products (${result.products.length}):</strong>`;
+        html += '<ul style="margin-top: 5px;">';
+        result.products.forEach(product => {
+          html += `<li>${product}</li>`;
+        });
+        html += '</ul>';
+      } else {
+        html += '<strong>Products:</strong> None found';
+      }
+      
+      html += '</div>';
+      
+      if (result.images && result.images.length > 0) {
+        html += `<div><strong>Images (${result.images.length}):</strong>`;
+        html += '<ul style="margin-top: 5px;">';
+        result.images.forEach(image => {
+          html += `<li><a href="${image}" target="_blank">${image.substring(0, 50)}...</a></li>`;
+        });
+        html += '</ul></div>';
+      }
+      
+      return html;
+    }
+    
+    // Format batch results
+    function formatBatchResults(results) {
+      let html = '<table style="width: 100%; border-collapse: collapse;">';
+      html += '<tr><th style="text-align: left; padding: 5px; border-bottom: 1px solid #ddd;">URL</th>';
+      html += '<th style="text-align: left; padding: 5px; border-bottom: 1px solid #ddd;">Products</th>';
+      html += '<th style="text-align: left; padding: 5px; border-bottom: 1px solid #ddd;">Images</th></tr>';
+      
+      results.forEach(result => {
+        html += '<tr>';
+        html += `<td style="padding: 5px; border-bottom: 1px solid #eee;"><a href="${result.url}" target="_blank">${result.url.substring(0, 30)}...</a></td>`;
+        html += `<td style="padding: 5px; border-bottom: 1px solid #eee;">${result.products ? result.products.length : 0}</td>`;
+        html += `<td style="padding: 5px; border-bottom: 1px solid #eee;">${result.images ? result.images.length : 0}</td>`;
+        html += '</tr>';
+      });
+      
+      html += '</table>';
+      return html;
+    }
+  </script>
+</body>
+</html>
