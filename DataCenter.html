@@ -1,0 +1,275 @@
+<script>
+// Add error handling for google.script.run
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error("Error: ", message, "at", source, ":", lineno);
+  alert("JavaScript error: " + message);
+  return true;
+};
+
+// Check if google.script object is available
+if (typeof google === 'undefined' || typeof google.script === 'undefined') {
+  console.error("Google Apps Script API not available");
+  document.body.innerHTML = '<div style="color:red; padding:20px;">Error: Unable to connect to Google Apps Script backend. Please try reloading the page.</div>' + document.body.innerHTML;
+}
+</script>
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Data Center</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    /* Same style as Index.html */
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      color: #202124;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      color: #4285f4;
+      margin: 0;
+    }
+    
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    
+    .button {
+      background: linear-gradient(135deg, #4285f4, #34a853);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .card-title {
+      font-weight: 500;
+      color: #4285f4;
+      margin-top: 0;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .progress-container {
+      height: 20px;
+      background-color: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(135deg, #4285f4, #34a853);
+      border-radius: 10px;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    
+    .stat-card {
+      padding: 15px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #4285f4;
+      margin: 5px 0;
+    }
+    
+    .stat-label {
+      font-size: 14px;
+      color: #5f6368;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-database"></i> Data Center</h1>
+    </div>
+    
+    <div class="controls">
+      <button id="startButton" class="button" onclick="startExtraction()">
+        <i class="fas fa-play"></i> Start Extraction
+      </button>
+      <button id="pauseButton" class="button" onclick="pauseExtraction()">
+        <i class="fas fa-pause"></i> Pause Extraction
+      </button>
+      <button id="resumeButton" class="button" onclick="resumeExtraction()">
+        <i class="fas fa-forward"></i> Resume Extraction
+      </button>
+      <button id="resetButton" class="button" onclick="resetExtraction()">
+        <i class="fas fa-sync"></i> Reset Progress
+      </button>
+    </div>
+    
+    <div class="card">
+      <h3 class="card-title"><i class="fas fa-tasks"></i> Progress</h3>
+      <div class="progress-container">
+        <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span id="progressText">0%</span>
+        <span id="statusText">Ready</span>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3 class="card-title"><i class="fas fa-chart-bar"></i> Statistics</h3>
+      <div class="grid">
+        <div class="stat-card">
+          <div class="stat-value" id="totalValue">0</div>
+          <div class="stat-label">Total Processed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="successValue">0</div>
+          <div class="stat-label">Success</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="errorValue">0</div>
+          <div class="stat-label">Errors</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Initialize
+    window.onload = function() {
+      refreshData();
+      
+      // Refresh data every 3 seconds
+      setInterval(refreshData, 3000);
+    };
+    
+    // Get data from server
+    function refreshData() {
+      google.script.run
+        .withSuccessHandler(updateUI)
+        .withFailureHandler(handleError)
+        .getDashboardData();
+    }
+    
+    // Update UI with data
+    function updateUI(data) {
+      if (data.error) {
+        handleError(data.error);
+        return;
+      }
+      
+      // Update progress
+      if (data.progress) {
+        const progress = data.progress.percent || 0;
+        document.getElementById('progressBar').style.width = `${progress}%`;
+        document.getElementById('progressText').textContent = `${progress}%`;
+        
+        // Update button states
+        document.getElementById('pauseButton').disabled = !data.progress.isPaused;
+        document.getElementById('resumeButton').disabled = !data.progress.isPaused;
+      }
+      
+      // Update status
+      if (data.status) {
+        document.getElementById('statusText').textContent = data.status.status;
+      }
+      
+      // Update statistics
+      if (data.stats) {
+        document.getElementById('totalValue').textContent = data.stats.total;
+        document.getElementById('successValue').textContent = data.stats.success;
+        document.getElementById('errorValue').textContent = data.stats.errors;
+      }
+    }
+    
+    // Handle error
+    function handleError(error) {
+      console.error("Error:", error);
+    }
+    
+    // Start extraction
+    function startExtraction() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            refreshData();
+          } else {
+            alert(result.message);
+          }
+        })
+        .startExtractionFromUI();
+    }
+    
+    // Pause extraction
+    function pauseExtraction() {
+      google.script.run
+        .withSuccessHandler(refreshData)
+        .pauseExtractionFromUI();
+    }
+    
+    // Resume extraction
+    function resumeExtraction() {
+      google.script.run
+        .withSuccessHandler(refreshData)
+        .resumeExtractionFromUI();
+    }
+    
+    // Reset extraction
+    function resetExtraction() {
+      if (confirm("Are you sure you want to reset progress? This cannot be undone.")) {
+        google.script.run
+          .withSuccessHandler(refreshData)
+          .resetProgress();
+      }
+    }
+  </script>
+</body>
+</html>
