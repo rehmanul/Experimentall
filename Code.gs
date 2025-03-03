@@ -1710,3 +1710,60 @@ function getAllSettings() {
   return filtered;
 }
 
+/***************************************************************
+* STATE MANAGEMENT
+***************************************************************/
+function updateProcessingState(state) {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('processingState', state);
+  Logger.info("STATE", `Processing state updated to: ${state}`);
+}
+
+function pauseProcessing() {
+  updateProcessingState('PAUSED');
+}
+
+function stopProcessing() {
+  updateProcessingState('STOPPED');
+  // Remove trigger
+  const triggers = ScriptApp.getProjectTriggers();
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === "processNextBatch") {
+      ScriptApp.deleteTrigger(trigger);
+      Logger.info("TRIGGER",`Removed trigger ${trigger}`);
+    }
+  }
+}
+
+function processNextBatch() {
+  //Add your code here to process the next batch
+  // ...
+  Logger.info("BATCH","Executing processNextBatch");
+  const props = PropertiesService.getScriptProperties();
+  const status = {
+    status: props.getProperty('processingState') || 'IDLE',
+    progress: parseInt(props.getProperty('progress') || '0'),
+    currentRow: parseInt(props.getProperty('currentRow') || '0'),
+    totalRows: parseInt(props.getProperty('totalRows') || '0'),
+    processingSpeed: parseInt(props.getProperty('processingSpeed') || '0'),
+    estimatedTimeRemaining: props.getProperty('estimatedTimeRemaining') || 'N/A',
+    recentErrors: JSON.parse(props.getProperty('recentErrors') || '[]')
+  };
+  Logger.info("BATCH",`processNextBatch status: ${JSON.stringify(status)}`);
+  // Check processing state to stop the execution
+  const processingState = props.getProperty('processingState');
+  if (processingState === 'STOPPED') {
+    Logger.info("BATCH","Stopping processNextBatch");
+    return; // Stop processing if the state is STOPPED
+  }
+  // Check processing state to pause the execution
+  if (processingState === 'PAUSED') {
+    Logger.info("BATCH","Pausing processNextBatch");
+    return; // Pause processing if the state is PAUSED
+  }
+  try{
+    // Add your process here
+  } catch(e){
+    Logger.error("BATCH","error in processNextBatch",e);
+  }
+}
