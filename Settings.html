@@ -293,6 +293,18 @@ if (typeof google === 'undefined' || typeof google.script === 'undefined') {
       loadSettings();
     };
     
+function handleServerEvent(event) {
+  switch(event.type) {
+    case 'progress':
+      updateProgressUI(event.data);
+      break;
+    case 'error':
+      showError(event.data);
+      break;
+    // Add more event handlers
+  }
+}
+
     // Show tab
     function showTab(tabId) {
       // Hide all tabs
