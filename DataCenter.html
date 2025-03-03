@@ -191,6 +191,18 @@ if (typeof google === 'undefined' || typeof google.script === 'undefined') {
       setInterval(refreshData, 3000);
     };
     
+    function handleServerEvent(event) {
+  switch(event.type) {
+    case 'progress':
+      updateProgressUI(event.data);
+      break;
+    case 'error':
+      showError(event.data);
+      break;
+    // Add more event handlers
+  }
+}
+
     // Get data from server
     function refreshData() {
       google.script.run
