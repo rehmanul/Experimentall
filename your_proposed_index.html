@@ -1,0 +1,147 @@
+// Custom Logger Implementation
+const Logger = {
+  log: function(message, severity = 'INFO') {
+    const timestamp = new Date().toISOString();
+    console.log(`[${severity}][${timestamp}] ${message}`);
+    
+    // Store logs in Properties for debugging
+    const userProperties = PropertiesService.getUserProperties();
+    const logs = JSON.parse(userProperties.getProperty('logs') || '[]');
+    logs.push({ timestamp, severity, message });
+    userProperties.setProperty('logs', JSON.stringify(logs.slice(-100))); // Keep last 100 logs
+  },
+  error: function(message) {
+    this.log(message, 'ERROR');
+  },
+  warn: function(message) {
+    this.log(message, 'WARN');
+  },
+  debug: function(message) {
+    this.log(message, 'DEBUG');
+  }
+};
+
+// Custom Error Types
+class ExtractorError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'ExtractorError';
+    this.code = code;
+  }
+}
+
+class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+// Error Handler
+function handleError(error, context) {
+  Logger.error(`${context}: ${error.message}`);
+  
+  if (error instanceof ExtractorError) {
+    return { success: false, error: error.message, code: error.code };
+  }
+  
+  if (error instanceof ApiError) {
+    return { success: false, error: error.message, status: error.status };
+  }
+  
+  return { success: false, error: 'Internal server error' };
+}
+
+// Rate Limiter
+const RateLimiter = {
+  requests: {},
+  
+  async throttle(key, limit = 10, window = 1000) {
+    const now = Date.now();
+    const timestamps = this.requests[key] || [];
+    
+    // Remove old timestamps
+    const valid = timestamps.filter(time => now - time < window);
+    
+    if (valid.length >= limit) {
+      const oldestTime = valid[0];
+      const waitTime = window - (now - oldestTime);
+      await Utilities.sleep(waitTime);
+    }
+    
+    valid.push(now);
+    this.requests[key] = valid;
+  }
+};
+
+/***************************************************************
+ * ENHANCED PRODUCT EXTRACTOR
+ * Version 4.0.0
+ * Improved with Azure OpenAI integration, image extraction,
+ * comma-separated output format, and web UI integration
+ ***************************************************************/
+const CONFIG = {
+  
+  /***************************************************************
+   * SHEET & COLUMN CONFIG
+   ***************************************************************/
+  sheetName: "Supplier D.B",
+  errorSheetName: "Error Log",
+  logSheetName: "Processing Log",
+  columns: {
+    vendor: 1,          // Column A
+    website: 4,         // Column D
+    status: 6,          // Column F
+    productsStart: 7,   // Column G - Now stores comma-separated products
+    images: 8           // Column H - For comma-separated image URLs
+  },
+  
+  /***************************************************************
+   * RECURSIVE CRAWL CONFIG
+   ***************************************************************/
+  maxDepth: 3,  // Maximum depth for sub-page crawling
+  productSectionPhrases: [
+    "Our Products", "Product Range", "Menu & Products", "Food Products",
+    "Culinary Creations", "Discover our products", "Fresh Selections",
+    "Products and Solutions", "Innovations in Food", "What We Offer",
+    "Our Portfolio", "Product Collection"
+  ],
+  
+  /***************************************************************
+   * EXTRACTION & AI SETTINGS
+   ***************************************************************/
+  translateToEnglish: true, // Translate each page's text before parsing
+  maxProducts: 50,          // Maximum products to extract
+  
+  // Azure OpenAI API configuration
+  azure: {
+    enabled: true,
+    apiKey: PropertiesService.getScriptProperties().getProperty('AZURE_OPENAI_KEY'),
+    endpoint: PropertiesService.getScriptProperties().getProperty('AZURE_OPENAI_ENDPOINT'),
+    deploymentName: PropertiesService.getScriptProperties().getProperty('AZURE_OPENAI_DEPLOYMENT'),
+    systemPrompt: `Extract product titles from the HTML content provided.
+Return a JSON array containing only the cleaned product titles.
+Example: ["Chocolate Hazelnut Spread 200g", "Frozen Pork Front Feet (B-grade)"]`
+  },
+  
+  // Regex-based approach for simple "product" extraction
+  regexSelectors: [
+    /<h1[^>]*>(.*?)<\/h1>/gi,
+    /<h2[^>]*>(.*?)<\/h2>/gi,
+    /<h3[^>]*>(.*?)<\/h3>/gi,
+    /<h4[^>]*>(.*?)<\/h4>/gi,
+    /<li[^>]*>(.*?)<\/li>/gi,
+    /<td[^>]*>(.*?)<\/td>/gi,
+    /<a[^>]+class="[^"]*(product|item|title|name)[^"]*"[^>]*>(.*?)<\/a>/gi,
+    /data-product-name="([^"]+)"/gi,
+    /class="[^"]*(title|name|product)[^"]*">([^<]+)<\/(?:div|span|p)>/gi,
+    /<div[^>]+class="[^"]*(product|item-title)[^"]*"[^>]*>(.*?)<\/div>/gi,
+    /<span[^>]+class="[^"]*(product|item-title)[^"]*"[^>]*>(.*?)<\/span>/gi,
+    /<p[^>]+class="[^"]*(product|item-title)[^"]*"[^>]*>(.*?)<\/p>/gi
+  ],
+  
+  // Image extraction selectors
+  imageSelectors: [
+    /<meta[^>]*property="og:image"[^>]*content="([^"]+)"/gi,
+  
