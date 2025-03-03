@@ -1,3 +1,80 @@
+// Custom Logger Implementation
+const Logger = {
+  log: function(message, severity = 'INFO') {
+    const timestamp = new Date().toISOString();
+    console.log(`[${severity}][${timestamp}] ${message}`);
+    
+    // Store logs in Properties for debugging
+    const userProperties = PropertiesService.getUserProperties();
+    const logs = JSON.parse(userProperties.getProperty('logs') || '[]');
+    logs.push({ timestamp, severity, message });
+    userProperties.setProperty('logs', JSON.stringify(logs.slice(-100))); // Keep last 100 logs
+  },
+  error: function(message) {
+    this.log(message, 'ERROR');
+  },
+  warn: function(message) {
+    this.log(message, 'WARN');
+  },
+  debug: function(message) {
+    this.log(message, 'DEBUG');
+  }
+};
+
+// Custom Error Types
+class ExtractorError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'ExtractorError';
+    this.code = code;
+  }
+}
+
+class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+// Error Handler
+function handleError(error, context) {
+  Logger.error(`${context}: ${error.message}`);
+  
+  if (error instanceof ExtractorError) {
+    return { success: false, error: error.message, code: error.code };
+  }
+  
+  if (error instanceof ApiError) {
+    return { success: false, error: error.message, status: error.status };
+  }
+  
+  return { success: false, error: 'Internal server error' };
+}
+
+// Rate Limiter
+const RateLimiter = {
+  requests: {},
+  
+  async throttle(key, limit = 10, window = 1000) {
+    const now = Date.now();
+    const timestamps = this.requests[key] || [];
+    
+    // Remove old timestamps
+    const valid = timestamps.filter(time => now - time < window);
+    
+    if (valid.length >= limit) {
+      const oldestTime = valid[0];
+      const waitTime = window - (now - oldestTime);
+      await Utilities.sleep(waitTime);
+    }
+    
+    valid.push(now);
+    this.requests[key] = valid;
+  }
+};
+
 /***************************************************************
  * ENHANCED PRODUCT EXTRACTOR
  * Version 4.0.0
@@ -334,6 +411,44 @@ function findProductSectionLinks(translatedHtml, baseUrl) {
     }
   }
   return [...new Set(links)];
+}
+
+// Chunk Processing for Large Datasets
+function processInChunks(items, chunkSize = 50) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+// Memory-efficient crawler
+async function optimizedCrawl(url, depth = 0, maxDepth = 3) {
+  if (depth > maxDepth) return [];
+  
+  const results = [];
+  const queue = [{ url, depth }];
+  
+  while (queue.length > 0) {
+    const batch = queue.splice(0, 10); // Process 10 URLs at a time
+    
+    for (const item of batch) {
+      try {
+        await RateLimiter.throttle('crawl');
+        const pageData = await fetchPage(item.url);
+        results.push(pageData);
+        
+        if (item.depth < maxDepth) {
+          const links = extractLinks(pageData);
+          queue.push(...links.map(url => ({ url, depth: item.depth + 1 })));
+        }
+      } catch (error) {
+        Logger.error(`Crawl error: ${error.message}`);
+      }
+    }
+  }
+  
+  return results;
 }
 
 /***************************************************************
@@ -1594,122 +1709,4 @@ function getAllSettings() {
   
   return filtered;
 }
-
-/***************************************************************
- * LOGGER IMPLEMENTATION
- ***************************************************************/
-/**
- * Enhanced logging system
- */
-const Logger = {
-  levels: {
-    DEBUG: 0,
-    INFO: 1,
-    WARN: 2,
-    ERROR: 3
-  },
-
-  currentLevel: 1, // Default to INFO
-
-  /**
-   * Set minimum log level
-   */
-  setLevel: function(level) {
-    if (this.levels[level] !== undefined) {
-      this.currentLevel = this.levels[level];
-    }
-  },
-
-  /**
-   * Log debug message
-   */
-  debug: function(category, message, data) {
-    if (this.currentLevel <= this.levels.DEBUG) {
-      this._log("DEBUG", category, message, data);
-    }
-    //original logger.log:
-    console.log(`[DEBUG] [${category}] ${message}`, data || '');
-  },
-
-  /**
-   * Log info message
-   */
-  info: function(category, message, data) {
-    if (this.currentLevel <= this.levels.INFO) {
-      this._log("INFO", category, message, data);
-    }
-    //original logger.log:
-    console.log(`[INFO] [${category}] ${message}`, data || '');
-  },
-
-  /**
-   * Log warning message
-   */
-  warn: function(category, message, data) {
-    if (this.currentLevel <= this.levels.WARN) {
-      this._log("WARN", category, message, data);
-    }
-    //original logger.log:
-     console.log(`[WARN] [${category}] ${message}`, data || '');
-  },
-
-  /**
-   * Log error message
-   */
-  error: function(category, message, data) {
-    if (this.currentLevel <= this.levels.ERROR) {
-      this._log("ERROR", category, message, data);
-    }
-    //original logger.log:
-     console.log(`[ERROR] [${category}] ${message}`, data || '');
-  },
-
-  /**
-   * Internal logging function
-   */
-  _log: function(level, category, message, data) {
-    // Store in script properties for UI access (limited to last 50 logs)
-    try {
-      const logs = JSON.parse(PropertiesService.getScriptProperties().getProperty("RECENT_LOGS") || "[]");
-
-      // Add new log entry
-      logs.unshift({
-        timestamp: new Date().toISOString(),
-        level: level,
-        category: category,
-        message: message,
-        data: data ? (typeof data === 'object' ? JSON.stringify(data) : String(data)) : null
-      });
-
-      // Keep only the last 50 logs
-      if (logs.length > 50) {
-        logs.length = 50;
-      }
-
-      PropertiesService.getScriptProperties().setProperty("RECENT_LOGS", JSON.stringify(logs));
-    } catch (e) {
-      console.error("Error storing log entry:", e);
-    }
-  },
-
-  /**
-   * Get recent logs for UI
-   */
-  getRecentLogs: function(limit = 50) {
-    try {
-      const logs = JSON.parse(PropertiesService.getScriptProperties().getProperty("RECENT_LOGS") || "[]");
-      return logs.slice(0, limit);
-    } catch (e) {
-      console.error("Error retrieving logs:", e);
-      return [];
-    }
-  },
-
-  /**
-   * Clear logs
-   */
-  clearLogs: function() {
-    PropertiesService.getScriptProperties().deleteProperty("RECENT_LOGS");
-  }
-};
 
